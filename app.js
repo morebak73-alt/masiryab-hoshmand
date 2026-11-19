@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const MAX_STOPS=100, STATE_KEY="masiryab-state-v2", LISTS_KEY="masiryab-lists-v2", GEO_KEY="masiryab-geocodes-v2";
+const MAX_STOPS=100, STATE_KEY="masiryab-state-v2", LISTS_KEY="masiryab-lists-v2", GEO_KEY="masiryab-geocodes-v3";
 let origin=null,stops=[],map,markers=[],routeLayer=null,ordered=[],nextIndex=0;
 const priorityName={3:"فوری",2:"مهم",1:"عادی"};
 function toast(s){const t=$("toast");t.textContent=s;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3500)}
@@ -16,52 +16,40 @@ $("addOneBtn").onclick=()=>{if(addStop($("singleAddress").value,+$("singlePriori
 $("addBulkBtn").onclick=()=>{const lines=[...new Set($("bulkAddresses").value.split(/\n/).map(x=>x.trim()).filter(Boolean))];const room=MAX_STOPS-stops.length;const accepted=lines.slice(0,room);accepted.forEach(x=>addStop(x,2));$("bulkAddresses").value="";toast(`${faNum(accepted.length)} مقصد اضافه شد${lines.length>room?"؛ به دلیل سقف ۱۰۰ مقصد، بقیه اضافه نشدند.":"."}`)};
 $("sampleBtn").onclick=()=>{["میدان آزادی، تهران","میدان انقلاب، تهران","میدان ولیعصر، تهران","میدان ونک، تهران"].forEach((x,i)=>addStop(x,[3,2,1,2][i]));toast("مقصدهای نمونه اضافه شدند.")};
 $("clearBtn").onclick=()=>{if(confirm("همه مقصدها پاک شوند؟")){stops=[];ordered=[];renderStops();clearRoute();persistState()}};
-function renderStops(){const box=$("stops");$("count").textContent=`${faNum(stops.length)} از ${faNum(MAX_STOPS)} مقصد`;if(!stops.length){box.className="stops empty";box.textContent="هنوز مقصدی اضافه نشده است.";return}box.className="stops";box.innerHTML="";stops.forEach((s,i)=>{const d=document.createElement("div");d.className="stop";d.innerHTML=`<div class="num">${faNum(i+1)}</div><div class="details"><div class="address"></div><div class="meta">${s.status==="done"?"تحویل انجام شد":s.lat?"آدرس شناسایی شده":"در انتظار مسیریابی"}</div></div><select aria-label="اولویت"><option value="3">فوری</option><option value="2">مهم</option><option value="1">عادی</option></select><button class="remove" aria-label="حذف">×</button>`;d.querySelector(".address").textContent=s.address;d.querySelector("select").value=s.priority;d.querySelector("select").onchange=e=>{s.priority=+e.target.value;persistState()};d.querySelector(".remove").onclick=()=>{stops=stops.filter(x=>x.id!==s.id);renderStops();clearRoute();persistState()};box.appendChild(d)})}
+function renderStops(){const box=$("stops");$("count").textContent=`${faNum(stops.length)} از ${faNum(MAX_STOPS)} مقصد`;if(!stops.length){box.className="stops empty";box.textContent="هنوز مقصدی اضافه نشده است.";return}box.className="stops";box.innerHTML="";stops.forEach((s,i)=>{const d=document.createElement("div");d.className="stop";d.innerHTML=`<div class="num">${faNum(i+1)}</div><div class="details"><div class="address"></div><div class="meta">${s.status==="done"?"تحویل انجام شد":s.lat?(s.approximate?"موقعیت تقریبی؛ روی نقشه بررسی شود":"آدرس شناسایی شده"):"در انتظار مسیریابی"}</div></div><select aria-label="اولویت"><option value="3">فوری</option><option value="2">مهم</option><option value="1">عادی</option></select><button class="remove" aria-label="حذف">×</button>`;d.querySelector(".address").textContent=s.address;d.querySelector("select").value=s.priority;d.querySelector("select").onchange=e=>{s.priority=+e.target.value;persistState()};d.querySelector(".remove").onclick=()=>{stops=stops.filter(x=>x.id!==s.id);renderStops();clearRoute();persistState()};box.appendChild(d)})}
 async function geocode(s){
-  if(Number.isFinite(s.lat)&&Number.isFinite(s.lon))return [s.lat,s.lon];
-  const cache=loadJSON(GEO_KEY,{});
-  const ck=s.address.trim().toLowerCase();
-  const inTehran=(lat,lon)=>lat>=35.50&&lat<=35.85&&lon>=51.15&&lon<=51.65;
-  if(cache[ck]&&Number.isFinite(cache[ck].lat)&&Number.isFinite(cache[ck].lon)&&inTehran(cache[ck].lat,cache[ck].lon)){
-    s.lat=cache[ck].lat;s.lon=cache[ck].lon;return [s.lat,s.lon];
-  }
-
-  // تمام ورودی‌ها به‌صورت پیش‌فرض در محدوده شهر تهران جست‌وجو می‌شوند.
-  const raw=s.address.trim();
-  const queryVariants=[
-    raw.includes("تهران")?raw:raw+", تهران، ایران",
-    raw.includes("تهران")?raw:raw+", تهران"
-  ];
-  let results=[],lastError=null;
-  for(const query of queryVariants){
-    const params=new URLSearchParams({
-      format:"jsonv2",limit:"8",addressdetails:"1",countrycodes:"ir",
-      "accept-language":"fa,en",viewbox:"51.15,35.85,51.65,35.50",bounded:"1",q:query
-    });
-    const url="https://nominatim.openstreetmap.org/search?"+params.toString();
-    try{
-      const r=await fetch(url,{headers:{"Accept-Language":"fa,en"}});
-      if(!r.ok)throw Error("سرویس آدرس‌یابی پاسخ نداد (کد "+r.status+")");
-      results=await r.json();
-      if(results.length)break;
-    }catch(e){lastError=e}
-    await new Promise(resolve=>setTimeout(resolve,1200));
-  }
-  if(!results.length){
-    if(lastError)throw lastError;
-    throw Error("این آدرس در محدوده تهران پیدا نشد: "+s.address+". نام محله یا تقاطع نزدیک را هم اضافه کن.");
-  }
-  const hit=results.find(x=>{
-    const lat=Number(x.lat),lon=Number(x.lon);
-    const cc=x.address?.country_code?.toLowerCase();
-    return Number.isFinite(lat)&&Number.isFinite(lon)&&inTehran(lat,lon)&&(cc==="ir"||!cc);
-  });
-  if(!hit)throw Error("نتیجه‌ای در محدوده تهران برای این آدرس پیدا نشد: "+s.address+". نام محله یا تقاطع نزدیک را اضافه کن.");
-  const lat=Number(hit.lat),lon=Number(hit.lon);
-  s.lat=lat;s.lon=lon;
-  cache[ck]={lat,lon,country_code:"ir",city:"Tehran",display_name:hit.display_name||""};
-  localStorage.setItem(GEO_KEY,JSON.stringify(cache));
-  return [s.lat,s.lon];
+ if(Number.isFinite(s.lat)&&Number.isFinite(s.lon))return [s.lat,s.lon];
+ const cache=loadJSON(GEO_KEY,{}),ck=s.address.trim().toLowerCase();
+ if(cache[ck]&&cache[ck].country_code==="ir"){s.lat=cache[ck].lat;s.lon=cache[ck].lon;s.approximate=!!cache[ck].approximate;s.matchLabel=cache[ck].matchLabel||"";return [s.lat,s.lon]}
+ const inTehran=(lat,lon)=>lat>=35.45&&lat<=35.95&&lon>=50.95&&lon<=51.85;
+ const full=s.address.replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[،,؛;]/g," ").replace(/\s+/g," ").trim();
+ let clean=full
+  .replace(/جنوب\s*به\s*شمال|شمال\s*به\s*جنوب|شرق\s*به\s*غرب|غرب\s*به\s*شرق/g," ")
+  .replace(/(?:پلاک|شماره|واحد)\s*[۰-۹0-9-]*/g," ")
+  .replace(/ابتدای|ابتداى|ابتدا|انتهای|انتهاى|انتها|روبروی|روبروى|جنب|کنار/g," ")
+  .replace(/\s+/g," ").trim();
+ const beforePlate=full.split(/پلاک|شماره|واحد/i)[0].trim();
+ const candidates=[full,clean,beforePlate];
+ const square=clean.match(/میدان\s+[\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+)?/);
+ if(square)candidates.push(square[0]);
+ const road=clean.match(/(?:خیابان|بزرگراه|اتوبان|بلوار|میدان)\s+[\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+){0,2}/);
+ if(road)candidates.push(road[0]);
+ const unique=[...new Set(candidates.map(q=>q.replace(/\s+/g," ").trim()).filter(q=>q.length>=4))];
+ let hit=null,usedQuery="",usedIndex=-1;
+ for(let i=0;i<unique.length;i++){
+  const q=unique[i]+"، تهران، ایران";
+  const params=new URLSearchParams({format:"jsonv2",limit:"8",addressdetails:"1",countrycodes:"ir","accept-language":"fa",viewbox:"50.95,35.95,51.85,35.45",bounded:"1",q});
+  const r=await fetch("https://nominatim.openstreetmap.org/search?"+params.toString(),{headers:{"Accept-Language":"fa"}});
+  if(!r.ok)throw Error("سرویس آدرس‌یابی پاسخ نداد؛ چند لحظه بعد دوباره امتحان کن.");
+  const results=await r.json();
+  hit=results.find(x=>{const lat=Number(x.lat),lon=Number(x.lon);return Number.isFinite(lat)&&Number.isFinite(lon)&&inTehran(lat,lon)&&(x.address?.country_code?.toLowerCase()==="ir"||inTehran(lat,lon));});
+  if(hit){usedQuery=q;usedIndex=i;break;}
+  if(i<unique.length-1)await new Promise(resolve=>setTimeout(resolve,1100));
+ }
+ if(!hit)throw Error("این آدرس در نقشه پیدا نشد. نام میدان یا خیابان اصلی را جداگانه وارد کن؛ مثلاً «میدان هفت‌تیر، تهران».");
+ s.lat=Number(hit.lat);s.lon=Number(hit.lon);s.approximate=usedIndex>0;s.matchLabel=hit.display_name||usedQuery;
+ cache[ck]={lat:s.lat,lon:s.lon,country_code:"ir",approximate:s.approximate,matchLabel:s.matchLabel};
+ localStorage.setItem(GEO_KEY,JSON.stringify(cache));return [s.lat,s.lon]
 }
 function hav(a,b){const R=6371,d1=(b[0]-a[0])*Math.PI/180,d2=(b[1]-a[1])*Math.PI/180,x=Math.sin(d1/2)**2+Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(d2/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
 function optimizeGreedy(points){let remaining=points.slice(),cur=[origin.lat,origin.lon],out=[];while(remaining.length){const maxP=Math.max(...remaining.map(x=>x.priority));const pool=remaining.filter(x=>x.priority===maxP);pool.sort((a,b)=>hav(cur,[a.lat,a.lon])-hav(cur,[b.lat,b.lon]));const chosen=pool[0];out.push(chosen);remaining=remaining.filter(x=>x.id!==chosen.id);cur=[chosen.lat,chosen.lon]}return out}
