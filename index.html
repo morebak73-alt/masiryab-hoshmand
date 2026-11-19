@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#102a43">
+<meta name="description" content="مسیریاب هوشمند چندمقصدی">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>مسیریاب هوشمند</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><div class="brand-icon">مسیر</div><div><h1>مسیریاب هوشمند</h1><p>چند مقصد، یک مسیر بهینه</p></div></div>
+  <span class="pill" id="gpsStatus">مبدأ تعیین نشده</span>
+</header>
+<main>
+<section class="panel">
+  <h2>۱. مبدأ حرکت</h2>
+  <div class="actions">
+    <button class="primary" id="gpsBtn">◎ دریافت موقعیت فعلی من</button>
+    <button class="secondary" id="manualOriginBtn">ورود مختصات دستی</button>
+  </div>
+  <p class="hint" id="originText">برای شروع، موقعیت GPS گوشی را دریافت کن. دسترسی مکان در بستر HTTPS لازم است.</p>
+</section>
+
+<section class="panel">
+  <div class="section-head"><h2>۲. افزودن مقصدها</h2><span class="counter" id="count">۰ مقصد</span></div>
+  <label for="bulkAddresses">هر آدرس را در یک خط وارد کن</label>
+  <textarea id="bulkAddresses" rows="4" placeholder="مثلاً:
+میدان آزادی، تهران
+خیابان ولیعصر، بالاتر از پارک ساعی، تهران
+میدان ونک، تهران"></textarea>
+  <div class="actions">
+    <button class="primary" id="addBulkBtn">افزودن آدرس‌ها</button>
+    <button class="secondary" id="sampleBtn">نمونه آزمایشی</button>
+  </div>
+  <div class="divider"></div>
+  <label for="singleAddress">افزودن یک مقصد</label>
+  <input id="singleAddress" type="text" placeholder="آدرس کامل مقصد">
+  <div class="inline-fields">
+    <select id="singlePriority" aria-label="اولویت"><option value="3">فوری</option><option value="2" selected>مهم</option><option value="1">عادی</option></select>
+    <button class="secondary" id="addOneBtn">افزودن</button>
+  </div>
+  <p class="hint">برای نتیجه بهتر، نام شهر و محله را هم وارد کن. آدرس‌ها برای تبدیل به مختصات به سرویس نقشه نیاز دارند.</p>
+</section>
+
+<section class="panel">
+  <div class="section-head"><h2>۳. فهرست مقصدها</h2><button class="text-btn" id="clearBtn">پاک‌کردن همه</button></div>
+  <div id="stops" class="stops empty">هنوز مقصدی اضافه نشده است.</div>
+  <div class="toggle-row"><label for="returnHome">بازگشت به مبدأ در پایان مسیر</label><input type="checkbox" id="returnHome"></div>
+  <button class="primary full" id="routeBtn">✦ بهینه‌سازی و نمایش مسیر</button>
+  <p class="hint">ترتیب مسیر با توجه به اولویت و فاصله تخمینی انتخاب می‌شود؛ ترافیک زنده در این نسخه لحاظ نمی‌شود.</p>
+</section>
+
+<section class="panel">
+  <div class="section-head"><h2>۴. نقشه و نتیجه مسیر</h2><span id="routeStatus" class="pill">آماده</span></div>
+  <div id="map" role="application" aria-label="نقشه مسیر"></div>
+  <div id="summary" class="summary">پس از افزودن مقصدها و دریافت مبدأ، مسیر را محاسبه کن.</div>
+  <ol id="orderedStops" class="ordered"></ol>
+  <div class="actions">
+    <button class="secondary" id="openNavBtn" disabled>بازکردن مقصد بعدی در نقشه</button>
+    <button class="secondary" id="exportBtn">خروجی فهرست مقصدها</button>
+  </div>
+</section>
+<section class="panel small">
+  <h2>راهنمای استفاده و حریم خصوصی</h2>
+  <p class="hint">موقعیت مکانی فقط با فشردن دکمه GPS و اجازه خودت دریافت می‌شود. این نسخه موقعیت را دائماً ردیابی یا برای دیگران ارسال نمی‌کند. برای آدرس‌یابی و مسیریابی از سرویس‌های عمومی OpenStreetMap، Nominatim و OSRM استفاده می‌شود؛ دسترس‌پذیری و پوشش آن‌ها در ایران تضمین‌شده نیست.</p>
+  <p class="hint">نسخه آزمایشی است و فعلاً حساب کاربری، ذخیره ابری و ترافیک زنده ندارد. از واردکردن اطلاعات حساس مشتریان خودداری کن.</p>
+</section>
+</main>
+<footer>نسخه آزمایشی ۱.۰ · طراحی‌شده برای استفاده موبایلی</footer>
+<div id="toast" class="toast" aria-live="polite"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="app.js"></script>
+</body></html>
